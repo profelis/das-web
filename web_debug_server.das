@@ -1,5 +1,5 @@
 options indenting = 2
-module debug_server shared
+module web_debug_server shared
 
 require fio
 
@@ -11,7 +11,11 @@ def run_debug_server(var server: WebServer?; fileName:string): bool
     return false
   let main_time = stat(fileName).mtime
 
-  server->run()
+  while true
+    server->tick()
+    sleep(0u)
+
+  server->stop()
   unsafe
     delete server
   return true
