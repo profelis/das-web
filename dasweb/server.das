@@ -44,6 +44,9 @@ class WebServer : Server
       print("[W] :{port} unhandled req `{string(current_string)}`")
       current_string |> clear()
 
+  def stop()
+    pass
+
   def finalize()
     if debugLogs
       print(":{port} destroy server\n")

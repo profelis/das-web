@@ -48,6 +48,8 @@ def private start(): bool
 
 
 def private stop()
+  if server != null
+    server->stop()
   unsafe
     delete jsonRpc
     delete server

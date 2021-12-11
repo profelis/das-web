@@ -6,7 +6,6 @@ require strings
 require matcher public
 require dashv/dashv_boost
 
-// options debugger
 
 class WebServer : HvWebSocketServer
   activeChannnel: WebSocketChannel?
@@ -73,7 +72,7 @@ class WebServer : HvWebSocketServer
           if length(unhandledRes) > 0
             self->sendStr(unhandledRes)
 
-  def processCurrentString(channel: WebSocketChannel?; data: string implicit): string
+  def processCurrentString(channel: WebSocketChannel?; data: string): string
     var str = data
     activeChannnel = channel
     var found = false
@@ -101,9 +100,9 @@ def start_server(var server: WebServer?): bool
   server->init(server.port)
   let startRes = server->start()
   if startRes != 0
+    print("start error :{server.port} - start res {startRes}\n")
     unsafe
       delete server
-    print("start error :{server.port} - start res {startRes}\n")
     return false
   if server.debugLogs
     print("start :{server.port} - start res {startRes}\n")
