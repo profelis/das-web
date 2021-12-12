@@ -1,10 +1,13 @@
 options indenting = 2
-module web_debug_server shared
+module web_server_debug shared
 
 require fio
 
 require web_server public
 
+[unused_argument(fn)] // for compatibility with server_debug
+def run_debug_server(var server: WebServer?; fn: string): bool
+  return run_debug_server(server)
 
 def run_debug_server(var server: WebServer?): bool
   if !start_server(server)
