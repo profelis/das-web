@@ -1,5 +1,5 @@
 options indenting = 2
-module debug_server shared
+module server_debug shared
 
 require fio
 

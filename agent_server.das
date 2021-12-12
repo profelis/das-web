@@ -1,7 +1,7 @@
 options indenting = 2
 options no_global_variables = false
 options persistent_heap = true
-module server_agent shared
+module agent_server shared
 
 require strings
 require debugapi
