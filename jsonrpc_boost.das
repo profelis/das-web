@@ -7,10 +7,8 @@ require debugapi public
 require daslib/ast_boost
 require daslib/templates_boost
 
-require server_agent public
 require jsonrpc_handler public
 require jsonrpc_args public
-require server_agent_boost public
 
 
 def private keep_args(var func)
@@ -21,67 +19,25 @@ def private keep_func_and_args(var func)
   func.flags |= FunctionFlags exports
   keep_args(func)
 
-
-def private add_call_reg_func(at; call_fn_name; call_fn_alias)
-  let fn_name = "register_{call_fn_name}_{call_fn_alias}"
-  var fn <- new [[Function() at = at, atDecl = at, name := fn_name]]
-  fn.flags |= FunctionFlags generated
-  fn.flags |= FunctionFlags privateFunction
-  fn.flags |= FunctionFlags init
-  fn.result <- new [[TypeDecl() baseType=Type autoinfer, at=at]]
-
-  var qblock <- quote() <|
-    if not_in_web_context()
-      add_call(func_name, func)
-
-  var rules : Template
-  rules |> replaceVariable("func_name") <| new [[ExprConstString() at = at, value := call_fn_alias]]
-  rules |> replaceVariable("func") <| new [[ExprAddr() at = at, target := call_fn_name, funcType := typeinfo(ast_typedecl type<function<(var params: JsonValue?; id: uint64): void>>)]]
-  apply_template(rules, at, qblock)
-  delete rules
-  unsafe
-    var blk <- move_unquote_block(qblock)
-    blk.blockFlags ^= ExprBlockFlags isClosure
-    fn.body <- blk
-
-  compiling_module() |> add_function(fn)
-
-def private add_notification_reg_func(at; call_fn_name; call_fn_alias)
-  let fn_name = "register_{call_fn_name}_{call_fn_alias}"
-  var fn <- new [[Function() at = at, atDecl = at, name := fn_name]]
-  fn.flags |= FunctionFlags generated
-  fn.flags |= FunctionFlags privateFunction
-  fn.flags |= FunctionFlags init
-  fn.result <- new [[TypeDecl() baseType=Type autoinfer, at=at]]
-
-  var qblock <- quote() <|
-    if not_in_web_context()
-      add_notification(func_name, func)
-
-  var rules : Template
-  rules |> replaceVariable("func_name") <| new [[ExprConstString() at = at, value := call_fn_alias]]
-  rules |> replaceVariable("func") <| new [[ExprAddr() at = at, target := call_fn_name, funcType := typeinfo(ast_typedecl type<function<(var params: JsonValue?): void>>)]]
-  apply_template(rules, at, qblock)
-  delete rules
-  unsafe
-    var blk <- move_unquote_block(qblock)
-    blk.blockFlags ^= ExprBlockFlags isClosure
-    fn.body <- blk
-
-  compiling_module() |> add_function(fn)
+def private validate_req_id_arg(arguments; var errors: das_string)
+  let argsNum = arguments.length
+  if argsNum < 1
+    errors := "at least one argument with request id is required (req_id: uint64)"
+    return false
+  if arguments[argsNum - 1]._type.baseType != Type tUInt64
+    errors := "the last argument should be of uint64 type (req_id: uint64)"
+    return false
+  return true
 
 
-def private transform_args(var func; is_call; var errors: das_string): bool
-  var fn <- clone_function(func)
-  fn.annotations |> clear()
-  fn.name := "{genFnPrefix}{fn.name}"
-  fn.flags |= FunctionFlags generated
+let private paramsName = "__params__"
+
+def private transform_args(var fn; is_call; var errors: das_string): bool
   let at = fn.at
   var blk: ExprBlock?
   unsafe
     blk = reinterpret<ExprBlock?> fn.body
 
-  let paramsName = "__params__"
   let argsNum = fn.arguments.length
   let processArgsNum = argsNum - (is_call ? 1 : 0)
   for i in range(processArgsNum)
@@ -141,89 +97,58 @@ def private transform_args(var func; is_call; var errors: das_string): bool
   fn.arguments |> emplace(paramsArg, 0)
 
   keep_func_and_args(fn)
-  compiling_module() |> add_function(fn)
-  return true
-
-
-def private validate_name_annotation(name_arg; var errors: das_string): bool
-  if name_arg is nothing
-    errors := "name is not defined"
-    return false
-  if !(name_arg is tString)
-    errors := "name should be string value"
-    return false
   return true
 
 
 [function_macro(name="rpc_call_raw")]
 class RpcCallRawAnnotation : AstFunctionAnnotation
-  [unused_argument(group)] def override apply(var func: FunctionPtr; var group: ModuleGroup; args: AnnotationArgumentList; var errors: das_string) : bool
-    let nameArg = find_arg("name", args)
-    if !validate_name_annotation(nameArg, errors)
-      return false
-
+  [unused_argument(group,args,errors)] def override apply(var func: FunctionPtr; var group: ModuleGroup; args: AnnotationArgumentList; var errors: das_string) : bool
     keep_func_and_args(func)
-    add_call_reg_func(func.at, func.name, nameArg as tString)
     return true
 
 
 [function_macro(name="rpc_notification_raw")]
 class RpcNotificationRawAnnotation : AstFunctionAnnotation
-  [unused_argument(group)] def override apply(var func: FunctionPtr; var group: ModuleGroup; args: AnnotationArgumentList; var errors: das_string): bool
-    let nameArg = find_arg("name", args)
-    if !validate_name_annotation(nameArg, errors)
-      return false
-
+  [unused_argument(group,args,errors)] def override apply(var func: FunctionPtr; var group: ModuleGroup; args: AnnotationArgumentList; var errors: das_string): bool
     keep_func_and_args(func)
-    add_notification_reg_func(func.at, func.name, nameArg as tString)
     return true
-
-
-def private validate_req_id_arg(arguments; var errors: das_string)
-  let argsNum = arguments.length
-  if argsNum < 1
-    errors := "at least one argument with request id is required (req_id: uint64)"
-    return false
-  if arguments[argsNum - 1]._type.baseType != Type tUInt64
-    errors := "the last argument should be of uint64 type (req_id: uint64)"
-    return false
-  return true
 
 
 [function_macro(name="rpc_call")]
 class RpcCallAnnotation : AstFunctionAnnotation
-  [unused_argument(group)] def override apply(var func: FunctionPtr; var group: ModuleGroup; args: AnnotationArgumentList; var errors: das_string) : bool
-    let nameArg = find_arg("name", args)
-    if !validate_name_annotation(nameArg, errors)
-      return false
+  [unused_argument(group,args,progArgs)] def override patch(var func:FunctionPtr; var group:ModuleGroup; args,progArgs:AnnotationArgumentList; var errors : das_string; var astChanged:bool&): bool
+    if func.arguments.length > 0 && func.arguments[0].name == paramsName
+      return true // already patched
     if !validate_req_id_arg(func.arguments, errors)
       return false
     if !transform_args(func, /*is_call*/true, errors)
       return false
+    astChanged = true
     keep_args(func)
-    add_call_reg_func(func.at, "{genFnPrefix}{func.name}", nameArg as tString)
     return true
 
 
 [function_macro(name="rpc_notification")]
 class RpcNotificationAnnotation : AstFunctionAnnotation
-  [unused_argument(group)] def override apply(var func: FunctionPtr; var group: ModuleGroup; args: AnnotationArgumentList; var errors: das_string): bool
-    let nameArg = find_arg("name", args)
-    if !validate_name_annotation(nameArg, errors)
-      return false
+  [unused_argument(group,args,progArgs)] def override patch ( var func:FunctionPtr; var group:ModuleGroup; args,progArgs:AnnotationArgumentList; var errors : das_string; var astChanged:bool& ) : bool
+    if func.arguments.length > 0 && func.arguments[0].name == paramsName
+      return true // already patched
     if !transform_args(func, /*is_call*/false, errors)
       return false
+    astChanged = true
     keep_args(func)
-    add_notification_reg_func(func.at, "{genFnPrefix}{func.name}", nameArg as tString)
     return true
 
 
 [function_macro(name="rpc_handler")]
 class RpcHandlerAnnotation : AstFunctionAnnotation
-  [unused_argument(group,args)] def override apply(var func: FunctionPtr; var group: ModuleGroup; args: AnnotationArgumentList; var errors: das_string): bool
+  [unused_argument(group,args,progArgs)] def override patch ( var func:FunctionPtr; var group:ModuleGroup; args,progArgs:AnnotationArgumentList; var errors : das_string; var astChanged:bool& ) : bool
+    if func.arguments.length > 0 && func.arguments[0].name == paramsName
+      return true // already patched
     if !validate_req_id_arg(func.arguments, errors)
       return false
     if !transform_args(func, /*is_call*/true, errors)
       return false
+    astChanged = true
     keep_args(func)
     return true
