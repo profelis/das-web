@@ -7,7 +7,7 @@ require matcher public
 require dashv/dashv_boost
 
 
-class WebServer : HvWebSocketServer
+class WebServer : HvWebServer
   activeChannnel: WebSocketChannel?
   channels:table<WebSocketChannel?; string> // channel -> url
   channelsData:table<WebSocketChannel?; string> // channel -> messages
@@ -23,7 +23,7 @@ class WebServer : HvWebSocketServer
   def override init(port: int)
     if debugLogs
       print("onInit {port}\n")
-    HvWebSocketServer`init(cast<HvWebSocketServer> self, port)
+    HvWebServer`init(cast<HvWebServer> self, port)
     self.port = port
 
   def onStr(str: string; var handler: Handler)
@@ -36,26 +36,26 @@ class WebServer : HvWebSocketServer
   def unhandled(var handler: Handler)
     unhandledHandler <- handler
 
-  def override onOpen(channel: WebSocketChannel?; url: string#): void
+  def override onWsOpen(channel: WebSocketChannel?; url: string#): void
     if debugLogs
       print("onOpen: {intptr(channel)}, {url}\n")
     channels[channel] := url
     channelsData[channel] := ""
 
-  def override onClose(channel: WebSocketChannel?): void
+  def override onWsClose(channel: WebSocketChannel?): void
     if debugLogs
       print("onClose: {intptr(channel)}\n")
     erase(channels, channel)
     erase(channelsData, channel)
 
-  def override onMessage(channel: WebSocketChannel?; msg: string#): void
+  def override onWsMessage(channel: WebSocketChannel?; msg: string#): void
     // print("onMessage: {intptr(channel)}, {msg} - was: `{channelsData[channel]}`\n")
     channelsData[channel] += msg
 
   def finalize()
     if debugLogs
       print(":{port} destroy server\n")
-    delete cast<HvWebSocketServer> self
+    delete cast<HvWebServer> self
 
   def sendStr(str: string)
     if debugLogs
