@@ -15,7 +15,7 @@ def run_debug_server(var server: WebServer?): bool
 
   while true
     server->tick()
-    sleep(0u)
+    sleep(10u)
 
   server->stop()
   unsafe

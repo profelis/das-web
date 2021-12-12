@@ -18,7 +18,7 @@ def run_debug_server(var server: WebServer?; fileName:string): bool
       print("restarting via source change {new_time}\n")
       server->restart()
       break
-    sleep(0u)
+    sleep(10u)
   unsafe
     delete server
   return true
