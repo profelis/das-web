@@ -7,16 +7,19 @@ require daslib/ast_boost
 let paramsName = "__params__"
 
 
+[macro_function]
 def keep_args(var func)
   for arg in func.arguments
     arg.flags |= VariableFlags marked_used
 
 
+[macro_function]
 def keep_func_and_args(var func)
   func.flags |= FunctionFlags exports
   keep_args(func)
 
 
+[macro_function]
 def validate_req_id_arg(arguments; var errors: das_string)
   let argsNum = arguments.length
   if argsNum < 1
@@ -28,6 +31,7 @@ def validate_req_id_arg(arguments; var errors: das_string)
   return true
 
 
+[macro_function]
 def transform_args(var fn; is_call; var errors: das_string): bool
   let at = fn.at
   var blk: ExprBlock?
