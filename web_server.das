@@ -67,13 +67,14 @@ class WebServer : HvWebServer
       if length(msg) > 0
         let res = self->processCurrentString(i, msg)
         msg = res
-        if length(res) > 1000 && unhandledHandler != null
+        if length(res) > 0 && unhandledHandler != null
           let unhandledRes = invoke(unhandledHandler, msg)
           if length(unhandledRes) > 0
             self->sendStr(unhandledRes)
+          msg = ""
 
   def processCurrentString(channel: WebSocketChannel?; data: string): string
-    var str = data
+    var str = data |> ends_with("\n") ? slice(data, 0, length(data) - 1) : data
     activeChannnel = channel
     var found = false
     if length(str) > 0
