@@ -19,10 +19,7 @@ def get_arg_name(params: JsonValue?; name: string): JsonValue?
   if params == null
     return null
   if params is _object
-    var res : JsonValue? = null
-    params as _object |> find(name) <| $(sub)
-      res = *sub
-    return res
+    return (params as _object)?[name] ?? [[JsonValue? ]]
   return null
 
 

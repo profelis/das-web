@@ -94,7 +94,7 @@ class JsonRpcMatch : Matcher
       return false
 
     if js is _array
-      var reqLen = requests |> length()
+      let reqLen = requests |> length()
       for it in js as _array
         self->parseReqJson(it, false)
       if ownJson && length(requests) > reqLen
@@ -111,11 +111,11 @@ class JsonRpcMatch : Matcher
 
     if js is _object
       var failed = false
-      js as _object |> find_if_exists("method") <| $(ptr)
-        if *ptr is _string
-          req.reqType = [[JsonRpcReqType method=*ptr as _string]]
-          js as _object |> find_if_exists("params") <| $(par)
-            req.params = *par
+      js as _object |> get("method") <| $(ptr)
+        if ptr is _string
+          req.reqType = [[JsonRpcReqType method=ptr as _string]]
+          js as _object |> get("params") <| $(par)
+            req.params = par
         else
           failed = true
 
@@ -124,16 +124,16 @@ class JsonRpcMatch : Matcher
         return false
 
       if req.reqType is none
-        js as _object |> find_if_exists("result") <| $(ptr)
+        js as _object |> get("result") <| $(ptr)
           req.reqType = [[JsonRpcReqType result=null]]
-          req.params = *ptr
+          req.params = ptr
 
       if req.reqType is method || req.reqType is result
-        js as _object |> find_if_exists("id") <| $(ptr)
-          if *ptr is _number
-            req.id = uint64(*ptr as _number)
-          elif *ptr is _string
-            req.id = uint64(double(*ptr as _string))
+        js as _object |> get("id") <| $(ptr)
+          if ptr is _number
+            req.id = uint64(ptr as _number)
+          elif ptr is _string
+            req.id = uint64(double(ptr as _string))
           else
             failed = true
         if failed // invalid id
@@ -141,9 +141,9 @@ class JsonRpcMatch : Matcher
           return false
 
       if req.reqType is none
-        js as _object |> find_if_exists("error") <| $(ptr)
+        js as _object |> get("error") <| $(ptr)
           req.reqType = [[JsonRpcReqType error=null]]
-          req.params = *ptr
+          req.params = ptr
 
       if !(req.reqType is none)
         self.requests |> emplace(req)
@@ -186,13 +186,13 @@ class JsonRpcHandler
       var found = false
       if req.reqType is method
         if req.id == 0ul
-          notifications |> find_for_edit_if_exists(req.reqType as method) <| $(ptr)
+          notifications |> get(req.reqType as method) <| $(ptr)
             found = true
-            (**ptr)->call(req.params, 0ul)
+            (*ptr)->call(req.params, 0ul)
         else
-          calls |> find_for_edit_if_exists(req.reqType as method) <| $(ptr)
+          calls |> get(req.reqType as method) <| $(ptr)
             found = true
-            (**ptr)->call(req.params, req.id)
+            (*ptr)->call(req.params, req.id)
         if !found
           var err = self->getError(METHOD_NOT_FOUND, METHOD_NOT_FOUND_CODE, JV(req.reqType as method), req.id)
           errors = length(errors) > 0 ? "{errors}\n{write_json(err)}" : write_json(err)
@@ -202,9 +202,9 @@ class JsonRpcHandler
         continue
 
       if req.reqType is result
-        handlers |> find_for_edit_if_exists(req.id) <| $(handler)
+        handlers |> get(req.id) <| $(handler)
           found = true
-          (**handler)->call(req.params, 0ul)
+          (*handler)->call(req.params, 0ul)
         if !found
           print("[E] unhandled result id: {req.id} - {msg}\n")
         continue
@@ -232,7 +232,7 @@ class JsonRpcHandler
     errorHandlers |> emplace(handler)
 
   def sendResponseStr(var server: WebServer?; msg: string; id: uint64)
-    var res = "\{\"jsonrpc\": \"2.0\", \"result\": {msg}, \"id\": {int(id)}\}"
+    let res = "\{\"jsonrpc\": \"2.0\", \"result\": {msg}, \"id\": {int(id)}\}"
     server->sendStr(res)
 
   def sendResponse(var server: WebServer?; msg: JsonValue?; id: uint64)
@@ -248,7 +248,7 @@ class JsonRpcHandler
       delete res
 
   def sendRequestRawStr(var server: WebServer?; method: string; params: string; id: uint64): void
-    var res = "\{\"jsonrpc\": \"2.0\", \"method\": \"{method}\", \"params\": {params}, \"id\": {int(id)}\}"
+    let res = "\{\"jsonrpc\": \"2.0\", \"method\": \"{method}\", \"params\": {params}, \"id\": {int(id)}\}"
     server->sendStr(res)
 
   def sendRequestStr(var server: WebServer?; method: string; params: string; var handler: RpcCall?): uint64
@@ -264,7 +264,7 @@ class JsonRpcHandler
     return currentId
 
   def sendNotificationStr(var server: WebServer?; method: string; params: string)
-    var res = "\{\"jsonrpc\": \"2.0\", \"method\": \"{method}\", \"params\": {params}\}"
+    let res = "\{\"jsonrpc\": \"2.0\", \"method\": \"{method}\", \"params\": {params}\}"
     server->sendStr(res)
 
   def sendNotification(var server: WebServer?; method: string; params: JsonValue?)

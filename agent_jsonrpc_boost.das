@@ -18,6 +18,7 @@ def private add_call_reg_func(at; call_fn_name; call_fn_alias)
   fn.flags |= FunctionFlags generated
   fn.flags |= FunctionFlags privateFunction
   fn.flags |= FunctionFlags init
+  fn.moreFlags |= MoreFunctionFlags lateInit
   fn.result <- new [[TypeDecl() baseType=Type autoinfer, at=at]]
 
   var qblock <- quote() <|
@@ -42,6 +43,7 @@ def private add_notification_reg_func(at; call_fn_name; call_fn_alias)
   fn.flags |= FunctionFlags generated
   fn.flags |= FunctionFlags privateFunction
   fn.flags |= FunctionFlags init
+  fn.moreFlags |= MoreFunctionFlags lateInit
   fn.result <- new [[TypeDecl() baseType=Type autoinfer, at=at]]
 
   var qblock <- quote() <|
@@ -74,7 +76,7 @@ def private validate_name_annotation(name_arg; var errors: das_string): bool
 [function_macro(name="auto_rpc_call_raw")]
 class AutoRpcCallRawAnnotation : AstFunctionAnnotation
   [unused_argument(group)] def override apply(var func: FunctionPtr; var group: ModuleGroup; args: AnnotationArgumentList; var errors: das_string) : bool
-    let nameArg = find_arg("name", args)
+    let nameArg = find_arg(args, "name")
     if !validate_name_annotation(nameArg, errors)
       return false
 
@@ -86,7 +88,7 @@ class AutoRpcCallRawAnnotation : AstFunctionAnnotation
 [function_macro(name="auto_rpc_notification_raw")]
 class AutoRpcNotificationRawAnnotation : AstFunctionAnnotation
   [unused_argument(group)] def override apply(var func: FunctionPtr; var group: ModuleGroup; args: AnnotationArgumentList; var errors: das_string): bool
-    let nameArg = find_arg("name", args)
+    let nameArg = find_arg(args, "name")
     if !validate_name_annotation(nameArg, errors)
       return false
 
@@ -98,9 +100,9 @@ class AutoRpcNotificationRawAnnotation : AstFunctionAnnotation
 [function_macro(name="auto_rpc_call")]
 class AutoRpcCallAnnotation : AstFunctionAnnotation
   [unused_argument(group)] def override patch(var func:FunctionPtr; var group:ModuleGroup; args,progArgs:AnnotationArgumentList; var errors : das_string; var astChanged:bool&): bool
-    if func.arguments.length > 0 && func.arguments[0].name == paramsName
+    if length(func.arguments) > 0 && func.arguments[0].name == paramsName
       return true // already patched
-    let nameArg = find_arg("name", args)
+    let nameArg = find_arg(args, "name")
     if !validate_name_annotation(nameArg, errors)
       return false
     if !validate_req_id_arg(func.arguments, errors)
@@ -116,9 +118,9 @@ class AutoRpcCallAnnotation : AstFunctionAnnotation
 [function_macro(name="auto_rpc_notification")]
 class AutoRpcNotificationAnnotation : AstFunctionAnnotation
   [unused_argument(group)] def override patch(var func:FunctionPtr; var group:ModuleGroup; args,progArgs:AnnotationArgumentList; var errors : das_string; var astChanged:bool&): bool
-    if func.arguments.length > 0 && func.arguments[0].name == paramsName
+    if length(func.arguments) > 0 && func.arguments[0].name == paramsName
       return true // already patched
-    let nameArg = find_arg("name", args)
+    let nameArg = find_arg(args, "name")
     if !validate_name_annotation(nameArg, errors)
       return false
     if !transform_args(func, /*is_call*/false, errors)
@@ -132,7 +134,7 @@ class AutoRpcNotificationAnnotation : AstFunctionAnnotation
 [function_macro(name="auto_rpc_handler")]
 class AutoRpcHandlerAnnotation : AstFunctionAnnotation
   [unused_argument(group,args)] def override patch(var func:FunctionPtr; var group:ModuleGroup; args,progArgs:AnnotationArgumentList; var errors : das_string; var astChanged:bool&): bool
-    if func.arguments.length > 0 && func.arguments[0].name == paramsName
+    if length(func.arguments) > 0 && func.arguments[0].name == paramsName
       return true // already patched
     if !validate_req_id_arg(func.arguments, errors)
       return false
