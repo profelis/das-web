@@ -18,7 +18,7 @@ function createSocket(reconnect) {
     }
     // binary socket
     let text = data
-    text += await event.data.text()
+    text += await event.data
     // split multiple json messages
     let start = 0
     let oc = 0

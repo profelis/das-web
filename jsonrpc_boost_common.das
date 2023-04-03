@@ -21,7 +21,7 @@ def keep_func_and_args(var func)
 
 [macro_function]
 def validate_req_id_arg(arguments; var errors: das_string)
-  let argsNum = arguments.length
+  let argsNum = length(arguments)
   if argsNum < 1
     errors := "at least one argument with request id is required (req_id: uint64)"
     return false
@@ -38,15 +38,15 @@ def transform_args(var fn; is_call; var errors: das_string): bool
   unsafe
     blk = reinterpret<ExprBlock?> fn.body
 
-  let argsNum = fn.arguments.length
+  let argsNum = length(fn.arguments)
   let processArgsNum = argsNum - (is_call ? 1 : 0)
   for i in range(processArgsNum)
     var argi <- new [[ExprCall() at = at, name := "get_arg" ]]
     argi.arguments |> emplace_new(new [[ExprVar() at = at, name := paramsName]])
     argi.arguments |> emplace_new(new [[ExprConstInt() at = at, value = i ]])
 
-    var baseArg & = unsafe(fn.arguments[i])
-    var baseArgType & = unsafe(baseArg._type)
+    assume baseArg = fn.arguments[i]
+    assume baseArgType = baseArg._type
     if baseArgType.baseType == Type tInt
       var toValue <- new [[ExprCall() at = at, name := "as_int" ]]
       toValue.arguments |> emplace(argi)

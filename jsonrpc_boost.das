@@ -25,7 +25,7 @@ class RpcNotificationRawAnnotation : AstFunctionAnnotation
 [function_macro(name="rpc_call")]
 class RpcCallAnnotation : AstFunctionAnnotation
   [unused_argument(group,args,progArgs)] def override patch(var func:FunctionPtr; var group:ModuleGroup; args,progArgs:AnnotationArgumentList; var errors : das_string; var astChanged:bool&): bool
-    if func.arguments.length > 0 && func.arguments[0].name == paramsName
+    if length(func.arguments) > 0 && func.arguments[0].name == paramsName
       return true // already patched
     if !validate_req_id_arg(func.arguments, errors)
       return false
@@ -39,7 +39,7 @@ class RpcCallAnnotation : AstFunctionAnnotation
 [function_macro(name="rpc_notification")]
 class RpcNotificationAnnotation : AstFunctionAnnotation
   [unused_argument(group,args,progArgs)] def override patch ( var func:FunctionPtr; var group:ModuleGroup; args,progArgs:AnnotationArgumentList; var errors : das_string; var astChanged:bool& ) : bool
-    if func.arguments.length > 0 && func.arguments[0].name == paramsName
+    if length(func.arguments) > 0 && func.arguments[0].name == paramsName
       return true // already patched
     if !transform_args(func, /*is_call*/false, errors)
       return false
@@ -51,7 +51,7 @@ class RpcNotificationAnnotation : AstFunctionAnnotation
 [function_macro(name="rpc_handler")]
 class RpcHandlerAnnotation : AstFunctionAnnotation
   [unused_argument(group,args,progArgs)] def override patch ( var func:FunctionPtr; var group:ModuleGroup; args,progArgs:AnnotationArgumentList; var errors : das_string; var astChanged:bool& ) : bool
-    if func.arguments.length > 0 && func.arguments[0].name == paramsName
+    if length(func.arguments) > 0 && func.arguments[0].name == paramsName
       return true // already patched
     if !validate_req_id_arg(func.arguments, errors)
       return false
