@@ -1,6 +1,7 @@
 options indenting = 2
 options no_global_variables = false
-options persistent_heap = true
+options persistent_heap
+options gc
 module agent_server shared
 
 require strings
@@ -21,9 +22,9 @@ var
   verbose = false
   strLimit = initialStrLimit
 
-var
-  server: WebServer?
-  jsonRpc: JsonRpcHandler?
+// TODO: rewrite using invoke_debug_agent_function
+var private [[ignore_heap_usage]] server : WebServer?
+var private [[ignore_heap_usage]] jsonRpc : JsonRpcHandler?
 
 
 def private bytes_hr(value : uint64)
@@ -48,8 +49,6 @@ def private start(): bool
 
 
 def private stop()
-  if server != null
-    server->stop()
   unsafe
     delete jsonRpc
     delete server
@@ -74,32 +73,41 @@ class WebDebugAgent : DapiDebugAgent
       print("onDestroyContext `{ctx}`\n")
     if server == null
       return
-    if jsonRpc != null
-      var toRemoveCalls: array<string>
-      for name, call in keys(jsonRpc.calls), values(jsonRpc.calls)
-        unsafe
-          var scoped = reinterpret<ScopedRpcCall?>(call)
-          let currentScope & = *(scoped.ctx)
-          if addr(currentScope) == addr(ctx)
-            toRemoveCalls |> push(name)
+    var toRemoveCalls : array<string>
+    for name, call in keys(jsonRpc.calls), values(jsonRpc.calls)
+      if empty(name)
+        stackwalk()
+        print("[E] call name is empty")
+        debug(call)
+        continue
+      unsafe
+        var scoped = reinterpret<ScopedRpcCall?> (call)
+        let currentScope & = *(scoped.ctx)
+        if addr(currentScope) == addr(ctx)
+          toRemoveCalls |> push(name)
 
-      for it in toRemoveCalls
-        if verbose
-          print("delete call `{it}`\n")
-        jsonRpc.calls |> erase(it)
+    for it in toRemoveCalls
+      if verbose
+        print("delete call `{it}`\n")
+      jsonRpc.calls |> erase(it)
 
-      var toRemoveNotifications: array<string>
-      for name, call in keys(jsonRpc.notifications), values(jsonRpc.notifications)
-        unsafe
-          var scoped = reinterpret<ScopedRpcCall?>(call)
-          let currentScope & = *(scoped.ctx)
-          if addr(currentScope) == addr(ctx)
-            toRemoveNotifications |> push(name)
+    var toRemoveNotifications : array<string>
+    for name, call in keys(jsonRpc.notifications), values(jsonRpc.notifications)
+      if empty(name)
+        stackwalk()
+        print("[E] notification name is empty")
+        debug(call)
+        continue
+      unsafe
+        var scoped = reinterpret<ScopedRpcCall?> (call)
+        let currentScope & = *(scoped.ctx)
+        if addr(currentScope) == addr(ctx)
+          toRemoveNotifications |> push(name)
 
-      for it in toRemoveNotifications
-        if verbose
-          print("delete notification `{it}`\n")
-        jsonRpc.notifications |> erase(it)
+    for it in toRemoveNotifications
+      if verbose
+        print("delete notification `{it}`\n")
+      jsonRpc.notifications |> erase(it)
 
     unsafe
       let localCtx: Context const & = this_context()
@@ -112,13 +120,13 @@ class WebDebugAgent : DapiDebugAgent
 
     var alloc = string_heap_bytes_allocated()
     if alloc > strLimit
-      // string_heap_report()
-      var report = "STRING HEAP COLLECT: {bytes_hr(alloc)} -> "
+      let strReport = "STRING HEAP COLLECT: {bytes_hr(alloc)} -> "
+      let heapReport = "HEAP COLLECT: {bytes_hr(heap_bytes_allocated())} -> "
       unsafe
-        string_heap_collect()
+        heap_collect(true)
       alloc = string_heap_bytes_allocated()
       if verbose
-        print("{report}{bytes_hr(alloc)} limit : {bytes_hr(strLimit)}\n")
+        print("{strReport}{bytes_hr(alloc)} limit : {bytes_hr(strLimit)}\n{heapReport}{bytes_hr(heap_bytes_allocated())}")
       if alloc > strLimit
         strLimit *= uint64(2)
         if verbose
@@ -188,8 +196,7 @@ def send_request_typed(method: string implicit; var data: JsonValue? implicit; v
   return true
 
 
-[export]
-def send_request_typed(method: string; var params: JsonValue?; var fn: function<(var params: JsonValue?; id: uint64): void>): bool
+def send_request_typed(method : string; var params : JsonValue?; var fn : function<(var params : JsonValue?; id : uint64) : void>) : bool
   return send_request_typed(method, params, fn, this_context())
 
 
@@ -219,11 +226,13 @@ def private start_debug_agent(ctx: Context)
 
 
 [export]
-def start_agent(force:bool = false): bool
-  if force || !has_web_agent()
-    fork_debug_agent_context(@@start_debug_agent)
-  elif verbose
-    print("debug agent already exists\n")
+def start_agent() : bool
+  unsafe
+    lock_debug_agent() <| $()
+      if !has_web_agent() && !is_in_debug_agent_creation()
+        fork_debug_agent_context(@@start_debug_agent)
+      elif verbose
+        print("debug agent already exists\n")
   return true
 
 

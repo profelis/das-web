@@ -12,7 +12,8 @@ require jsonrpc_handler public
 require jsonrpc_args public
 require agent_server_boost public
 
-def private add_call_reg_func(at; call_fn_name; call_fn_alias)
+[macro_function]
+def add_call_reg_func(at; call_fn_name; call_fn_alias)
   let fn_name = "register_{call_fn_name}_{call_fn_alias}"
   var fn <- new [[Function() at = at, atDecl = at, name := fn_name]]
   fn.flags |= FunctionFlags generated
@@ -22,8 +23,11 @@ def private add_call_reg_func(at; call_fn_name; call_fn_alias)
   fn.result <- new [[TypeDecl() baseType=Type autoinfer, at=at]]
 
   var qblock <- quote() <|
-    if not_in_web_context()
-      add_call(func_name, func)
+    unsafe
+      lock_debug_agent() <| $()
+        start_agent()
+        if not_in_web_context()
+          add_call(func_name, func, this_context())
 
   var rules : Template
   rules |> replaceVariable("func_name") <| new [[ExprConstString() at = at, value := call_fn_alias]]
@@ -37,7 +41,8 @@ def private add_call_reg_func(at; call_fn_name; call_fn_alias)
 
   compiling_module() |> add_function(fn)
 
-def private add_notification_reg_func(at; call_fn_name; call_fn_alias)
+[macro_function]
+def add_notification_reg_func(at; call_fn_name; call_fn_alias)
   let fn_name = "register_{call_fn_name}_{call_fn_alias}"
   var fn <- new [[Function() at = at, atDecl = at, name := fn_name]]
   fn.flags |= FunctionFlags generated
@@ -47,8 +52,11 @@ def private add_notification_reg_func(at; call_fn_name; call_fn_alias)
   fn.result <- new [[TypeDecl() baseType=Type autoinfer, at=at]]
 
   var qblock <- quote() <|
-    if not_in_web_context()
-      add_notification(func_name, func)
+    unsafe
+      lock_debug_agent() <| $()
+        start_agent()
+        if not_in_web_context()
+          add_notification(func_name, func, this_context())
 
   var rules : Template
   rules |> replaceVariable("func_name") <| new [[ExprConstString() at = at, value := call_fn_alias]]
@@ -63,12 +71,16 @@ def private add_notification_reg_func(at; call_fn_name; call_fn_alias)
   compiling_module() |> add_function(fn)
 
 
-def private validate_name_annotation(name_arg; var errors: das_string): bool
+[macro_function]
+def validate_name_annotation(name_arg; var errors : das_string) : bool
   if name_arg is nothing
     errors := "name is not defined"
     return false
   if !(name_arg is tString)
     errors := "name should be string value"
+    return false
+  if empty(name_arg as tString)
+    errors := "name string is empty"
     return false
   return true
 
@@ -99,9 +111,7 @@ class AutoRpcNotificationRawAnnotation : AstFunctionAnnotation
 
 [function_macro(name="auto_rpc_call")]
 class AutoRpcCallAnnotation : AstFunctionAnnotation
-  [unused_argument(group)] def override patch(var func:FunctionPtr; var group:ModuleGroup; args,progArgs:AnnotationArgumentList; var errors : das_string; var astChanged:bool&): bool
-    if length(func.arguments) > 0 && func.arguments[0].name == paramsName
-      return true // already patched
+  [unused_argument(group)] def override apply(var func : FunctionPtr; var group : ModuleGroup; args : AnnotationArgumentList; var errors : das_string) : bool
     let nameArg = find_arg(args, "name")
     if !validate_name_annotation(nameArg, errors)
       return false
@@ -109,37 +119,30 @@ class AutoRpcCallAnnotation : AstFunctionAnnotation
       return false
     if !transform_args(func, /*is_call*/true, errors)
       return false
-    astChanged = true
     keep_args(func)
-    add_call_reg_func(func.at, "{func.name}", nameArg as tString)
+    add_call_reg_func(func.at, "{genFnPrefix}{func.name}", nameArg as tString)
     return true
 
 
 [function_macro(name="auto_rpc_notification")]
 class AutoRpcNotificationAnnotation : AstFunctionAnnotation
-  [unused_argument(group)] def override patch(var func:FunctionPtr; var group:ModuleGroup; args,progArgs:AnnotationArgumentList; var errors : das_string; var astChanged:bool&): bool
-    if length(func.arguments) > 0 && func.arguments[0].name == paramsName
-      return true // already patched
+  [unused_argument(group)] def override apply(var func : FunctionPtr; var group : ModuleGroup; args : AnnotationArgumentList; var errors : das_string) : bool
     let nameArg = find_arg(args, "name")
     if !validate_name_annotation(nameArg, errors)
       return false
     if !transform_args(func, /*is_call*/false, errors)
       return false
-    astChanged = true
     keep_args(func)
-    add_notification_reg_func(func.at, "{func.name}", nameArg as tString)
+    add_notification_reg_func(func.at, "{genFnPrefix}{func.name}", nameArg as tString)
     return true
 
 
 [function_macro(name="auto_rpc_handler")]
 class AutoRpcHandlerAnnotation : AstFunctionAnnotation
-  [unused_argument(group,args)] def override patch(var func:FunctionPtr; var group:ModuleGroup; args,progArgs:AnnotationArgumentList; var errors : das_string; var astChanged:bool&): bool
-    if length(func.arguments) > 0 && func.arguments[0].name == paramsName
-      return true // already patched
+  [unused_argument(group, args)] def override apply(var func : FunctionPtr; var group : ModuleGroup; args : AnnotationArgumentList; var errors : das_string) : bool
     if !validate_req_id_arg(func.arguments, errors)
       return false
     if !transform_args(func, /*is_call*/true, errors)
       return false
-    astChanged = true
     keep_args(func)
     return true

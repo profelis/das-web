@@ -30,17 +30,7 @@ class FunctionRpcCall : RpcCall
   def FunctionRpcCall(var f: function<(var params: JsonValue?; id: uint64):void>)
     fn <- f
 
-  def override call(var params: JsonValue?; id: uint64): void
-    invoke(fn, params, id)
-
-// magic func rpc call, for rpc_call macro
-class MFunctionRpcCall : RpcCall
-  fn: function<(var params: JsonValue?; id: uint64):void>
-  def MFunctionRpcCall(var f: function)
-    unsafe
-      fn <- reinterpret<function<(var params: JsonValue?; id: uint64):void>> f
-
-  def override call(var params: JsonValue?; id: uint64): void
+  def override call(var params : JsonValue?; id : uint64) : void
     invoke(fn, params, id)
 
 
@@ -49,15 +39,5 @@ class FunctionRpcNotification : RpcCall
   def FunctionRpcNotification(var f: function<(var params: JsonValue?):void>)
     fn <- f
 
-  [unused_argument(id)] def override call(var params: JsonValue?; id: uint64): void
-    invoke(fn, params)
-
-
-class MFunctionRpcNotification : RpcCall
-  fn: function<(var params: JsonValue?):void>
-  def FunctionRpcNotification(var f: function)
-    unsafe
-      fn <- reinterpret<function<(var params: JsonValue?):void>> f
-
-  [unused_argument(id)] def override call(var params: JsonValue?; id: uint64): void
+  [unused_argument(id)] def override call(var params : JsonValue ?; id : uint64) : void
     invoke(fn, params)
