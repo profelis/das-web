@@ -8,6 +8,7 @@ require matcher public
 
 class WebServer : Server
   port:int = 9000
+  documentPath : string = "../../prog/daNetGame/webui/das-remote"
   restore_session: string = "server-session"
   debugLogs : bool = false
 
@@ -16,9 +17,6 @@ class WebServer : Server
   matchers: array<Matcher?>
   handlers: array<Handler>
   unhandledHandler: Handler
-
-  def WebServer
-    Server`Server(cast<Server> self)
 
   def onStr(str: string; var handler: Handler)
     self->on(new StringMatch(str), handler)
@@ -40,12 +38,9 @@ class WebServer : Server
   def override onDisconnect()
     if debugLogs
       print(":{port} client disconnected\n")
-    if !empty(current_string)
+    if length(current_string) > 0
       print("[W] :{port} unhandled req `{string(current_string)}`")
       current_string |> clear()
-
-  def stop()
-    pass
 
   def finalize()
     if debugLogs
@@ -57,6 +52,9 @@ class WebServer : Server
       var session : smart_ptr<NetworkServer>
       self->save(session)
       gc0_save_smart_ptr(restore_session, session)
+
+  def sendStrLf(str : string)
+    self->sendStr("{str}\n") // use '\n' to split multiple messages on client
 
   def sendStr(str: string)
     if debugLogs
@@ -73,7 +71,7 @@ class WebServer : Server
         continue
 
       if int(ch) == '\n' && length(current_string) > 0
-        var res = self->processCurrentString()
+        let res = self->processCurrentString()
         if !res
           if unhandledHandler != null
             let unhandledRes = invoke(unhandledHandler, string(current_string))
@@ -111,7 +109,6 @@ class WebServer : Server
 
 
 def start_server(var server: WebServer?): bool
-  server->make_server_adapter()
   var session : smart_ptr<NetworkServer> <- gc0_restore_smart_ptr(server.restore_session)
   if session != null
     if server.debugLogs

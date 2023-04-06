@@ -2,6 +2,7 @@ options indenting = 2
 module jsonrpc_boost_common shared
 
 require daslib/ast_boost
+require agent_server_boost public
 
 
 let paramsName = "__params__"
@@ -32,12 +33,17 @@ def validate_req_id_arg(arguments; var errors: das_string)
 
 
 [macro_function]
-def transform_args(var fn; is_call; var errors: das_string): bool
+def transform_args(var func; is_call; var errors : das_string) : bool
+  var fn <- clone_function(func)
+  fn.annotations |> clear()
+  fn.name := "{genFnPrefix}{fn.name}"
+  fn.flags |= FunctionFlags generated
   let at = fn.at
   var blk: ExprBlock?
   unsafe
     blk = reinterpret<ExprBlock?> fn.body
 
+  let paramsName = "__params__"
   let argsNum = length(fn.arguments)
   let processArgsNum = argsNum - (is_call ? 1 : 0)
   for i in range(processArgsNum)
@@ -86,7 +92,7 @@ def transform_args(var fn; is_call; var errors: das_string): bool
         ]]
     blk.list |> emplace(vlet, i)
 
-  for i in range(processArgsNum) // cleanup all arguments
+  for _ in range(processArgsNum) // cleanup all arguments
     fn.arguments |> erase(0)
 
   var paramsArg <- new [[Variable()
@@ -97,4 +103,5 @@ def transform_args(var fn; is_call; var errors: das_string): bool
   fn.arguments |> emplace(paramsArg, 0)
 
   keep_func_and_args(fn)
+  compiling_module() |> add_function(fn)
   return true
