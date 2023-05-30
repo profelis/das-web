@@ -1,4 +1,5 @@
 options indenting = 2
+options strict_smart_pointers
 options no_global_variables = false
 options persistent_heap
 options gc

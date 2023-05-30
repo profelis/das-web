@@ -1,4 +1,5 @@
 options indenting = 2
+options strict_smart_pointers
 module agent_jsonrpc_boost shared
 
 require debugapi public
@@ -15,25 +16,24 @@ require agent_server_boost public
 [macro_function]
 def add_call_reg_func(at; call_fn_name; call_fn_alias)
   let fn_name = "register_{call_fn_name}_{call_fn_alias}"
-  var fn <- new [[Function() at = at, atDecl = at, name := fn_name]]
+  var inscope fn <- new [[Function() at = at, atDecl = at, name := fn_name]]
   fn.flags |= FunctionFlags generated
   fn.flags |= FunctionFlags privateFunction
   fn.flags |= FunctionFlags init
   fn.moreFlags |= MoreFunctionFlags lateInit
-  fn.result <- new [[TypeDecl() baseType=Type autoinfer, at=at]]
+  fn.result |> move_new() <| new [[TypeDecl() baseType=Type autoinfer, at=at]]
 
-  var qblock <- quote() <|
+  var inscope qblock <- quote() <|
     unsafe
       lock_debug_agent() <| $()
         start_agent()
         if not_in_web_context()
           add_call(func_name, func, this_context())
 
-  var rules : Template
+  var inscope rules : Template
   rules |> replaceVariable("func_name") <| new [[ExprConstString() at = at, value := call_fn_alias]]
   rules |> replaceVariable("func") <| new [[ExprAddr() at = at, target := call_fn_name, funcType := typeinfo(ast_typedecl type<function<(var params: JsonValue?; id: uint64): void>>)]]
   apply_template(rules, at, qblock)
-  delete rules
   unsafe
     var blk <- move_unquote_block(qblock)
     blk.blockFlags ^= ExprBlockFlags isClosure
@@ -44,25 +44,24 @@ def add_call_reg_func(at; call_fn_name; call_fn_alias)
 [macro_function]
 def add_notification_reg_func(at; call_fn_name; call_fn_alias)
   let fn_name = "register_{call_fn_name}_{call_fn_alias}"
-  var fn <- new [[Function() at = at, atDecl = at, name := fn_name]]
+  var inscope fn <- new [[Function() at = at, atDecl = at, name := fn_name]]
   fn.flags |= FunctionFlags generated
   fn.flags |= FunctionFlags privateFunction
   fn.flags |= FunctionFlags init
   fn.moreFlags |= MoreFunctionFlags lateInit
-  fn.result <- new [[TypeDecl() baseType=Type autoinfer, at=at]]
+  fn.result |> move_new() <| new [[TypeDecl() baseType=Type autoinfer, at=at]]
 
-  var qblock <- quote() <|
+  var inscope qblock <- quote() <|
     unsafe
       lock_debug_agent() <| $()
         start_agent()
         if not_in_web_context()
           add_notification(func_name, func, this_context())
 
-  var rules : Template
+  var inscope rules : Template
   rules |> replaceVariable("func_name") <| new [[ExprConstString() at = at, value := call_fn_alias]]
   rules |> replaceVariable("func") <| new [[ExprAddr() at = at, target := call_fn_name, funcType := typeinfo(ast_typedecl type<function<(var params: JsonValue?): void>>)]]
   apply_template(rules, at, qblock)
-  delete rules
   unsafe
     var blk <- move_unquote_block(qblock)
     blk.blockFlags ^= ExprBlockFlags isClosure

@@ -1,4 +1,5 @@
 options indenting = 2
+options strict_smart_pointers
 module server shared
 
 require network
@@ -49,7 +50,7 @@ class WebServer : Server
 
   def restart
     if _server != null
-      var session : smart_ptr<NetworkServer>
+      var inscope session : smart_ptr<NetworkServer>
       self->save(session)
       gc0_save_smart_ptr(restore_session, session)
 
@@ -109,7 +110,7 @@ class WebServer : Server
 
 
 def start_server(var server: WebServer?): bool
-  var session : smart_ptr<NetworkServer> <- gc0_restore_smart_ptr(server.restore_session)
+  var inscope session : smart_ptr<NetworkServer> <- gc0_restore_smart_ptr(server.restore_session)
   if session != null
     if server.debugLogs
       print("restoring :{server.port} after restart\n")
